@@ -7,8 +7,8 @@
            (javax.swing ImageIcon JLabel JFrame)
            (java.awt Toolkit BorderLayout)))
 
-(defn http-interesting [x]
-  (let [http (-> x
+(defn http-data [frame]
+  (let [http (-> frame
                  (get "_source")
                  (get "layers")
                  (get "http"))
@@ -24,14 +24,14 @@
         (assoc :response-code response-code)
         (assoc :method request-method))))
 
-(defn other-interesting [x]
-  {:id             (get-in x ["_source" "layers" "frame" "frame.number"])
-   :time           (long (* 1000 (Double/parseDouble (get-in x ["_source" "layers" "frame" "frame.time_epoch"]))))
-   :frame-size     (Long/parseLong (get-in x ["_source" "layers" "frame" "frame.len"]))
-   :destination-ip (get-in x ["_source" "layers" "ip" "ip.dst_host"])})
+(defn other-data [frame]
+  {:id             (get-in frame ["_source" "layers" "frame" "frame.number"])
+   :time           (long (* 1000 (Double/parseDouble (get-in frame ["_source" "layers" "frame" "frame.time_epoch"]))))
+   :frame-size     (Long/parseLong (get-in frame ["_source" "layers" "frame" "frame.len"]))
+   :destination-ip (get-in frame ["_source" "layers" "ip" "ip.dst_host"])})
 
-(defn interesting [x]
-  (merge (http-interesting x) (other-interesting x)))
+(defn parse-frame [frame]
+  (merge (http-data frame) (other-data frame)))
 
 (defn uri-ends [what]
   (fn [x]
@@ -59,11 +59,11 @@
               (.contains "sockjs-node")))))
 
 (defn remove-boring-frames [all-frames]
-  (let [to-ignore (filter ignore-request? (map interesting all-frames))
+  (let [to-ignore (filter ignore-request? (map parse-frame all-frames))
         ids-to-remove (set (remove nil? (mapcat (juxt :id #(get % "http.response_in")) to-ignore)))]
     (remove
       (comp ids-to-remove :id)
-      (map interesting all-frames))))
+      (map parse-frame all-frames))))
 
 (defn from? [req]
   (if (.contains (get req "http.user_agent" "") "Mozilla")
@@ -166,8 +166,8 @@
         (.generateImage out))
     (.close out)))
 
-(def input-file "your input json file path")
-(def output-img "the result image")
+(def input-file "sample.json")
+(def output-img "sample.png")
 
 (defonce data (json/parse-string (slurp input-file)))
 
